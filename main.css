@@ -182,10 +182,12 @@ ul.buttons li.l2.on, ul.buttons li.l3.on {
   opacity: 0.4;
   cursor: pointer;
   padding: 7px;
-/*  border: 1px solid transparent;*/
-/*  border-radius: 3px;*/
+  transition: opacity 0.3s ease;
   vertical-align: top;
-/*  margin-top: 2px;*/
+}
+
+.buttons-2.hovered {
+  opacity: 0.8;
 }
 
 .screens {
