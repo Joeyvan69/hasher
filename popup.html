@@ -1,129 +1,82 @@
 <!doctype html>
-<html>
+<html lang="en">
   <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Hasher</title>
-    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-    <link href="main.css" type="text/css" rel="stylesheet" />
-    <script src="lib/cryptojs/components/core-min.js" async></script>
-    <script src="lib/cryptojs/components/enc-base64-min.js" async></script>
-    <script src="lib/cryptojs/components/enc-utf16-min.js" async></script>
-    <script src="lib/cryptojs/components/md5-min.js.js" async></script>
-    <script src="lib/cryptojs/components/sha1-min.js" async></script>
-    <script src="lib/cryptojs/components/sha224-min.js" async></script>
-    <script src="lib/cryptojs/components/sha256-min.js" async></script>
-    <script src="lib/cryptojs/components/sha384-min.js" async></script>
-    <script src="lib/cryptojs/components/sha512-min.js" async></script>
-    <script src="lib/cryptojs/components/aes-min.js" async></script>
-    <script src="lib/cryptojs/components/tripledes-min.js" async></script>
-    <script src="lib/cryptojs/components/rabbit-min.js" async></script>
-    <script src="lib/cryptojs/components/rc4-min.js" async></script>
-    <script src="lib/cryptojs/rollups/hmac-md5.js" async></script>
-    <script src="lib/cryptojs/rollups/hmac-sha1.js" async></script>
-    <script src="lib/cryptojs/rollups/hmac-sha224.js" async></script>
-    <script src="lib/cryptojs/rollups/hmac-sha256.js" async></script>
-    <script src="lib/cryptojs/rollups/hmac-sha384.js" async></script>
-    <script src="lib/cryptojs/rollups/hmac-sha512.js" async></script>
-    <script src="lib/hash/ripemd.js" async></script>
-    <script src="lib/hash/whirpool.js" async></script>
-    <script src="lib/hash/crc.js" async></script>
-    <script src="lib/hash/numbers.js" async></script>
-    <script src="lib/hash/romanconverter.js" async></script>
-    <script src="lib/hash/rot13.js" async></script>
-    <script src="lib/hash/ipcalc.js" async></script>
-    <script src="lib/jquery-1.7.2.min.js"></script>
+    <link href="main.css" rel="stylesheet">
+    <script src="lib/hash-wasm/4.12.0/hash-wasm.umd.min.js" defer></script>
+    <script src="lib/hash/crc.js" defer></script>
+    <script src="lib/hash/ipcalc.js" defer></script>
+    <script src="lib/hash/romanconverter.js" defer></script>
+    <script src="hasher.js" defer></script>
+    <script src="popup.js" defer></script>
   </head>
   <body>
+    <main id="screen-1" class="screen">
+      <div id="toolbar">
+        <a id="button-info" class="icon-button" href="#info" title="About" aria-label="About">
+          <img src="images/info.png" width="16" height="16" alt="">
+        </a>
+        <span class="toolbar-divider" aria-hidden="true"></span>
+        <button id="button-popout" class="icon-button" type="button" title="Open in new tab" aria-label="Open in new tab">
+          <img src="images/popout.png" width="16" height="16" alt="">
+        </button>
+      </div>
 
-    <div id="screen-1" class="screens">
-      <div id="info"><a href="#info"><img id="button-info" class="buttons-2" src="images/info.png" width="16" height="16" title="About" alt="" /></a><span style="border-right: 1px solid #ccc; margin-left: 5px; margin-right: 5px;"></span><img id="button-popout" class="buttons-2" src="images/popout.png" width="16" height="16" title="Open in new tab" alt="" /></div>
-      <ul id="tabs" class="buttons"><li id="hash" class="on l1">Hash</li><li id="hmac" class="l2">HMAC</li><li id="crc" class="l2">CRC</li><li id="cipher" class="l3">Cipher</li><li id="net">Net</li><li id="time">Time</li><li id="number" class="l1">Num</li><li id="string" class="l3">Strings</li><li id="encode">Encode</li></ul>
-      <!-- input -->
-      <div id="input">
-        <div class="title">
-          Input:
+      <nav id="tabs" class="tabs" role="tablist" aria-label="Tool category">
+        <button type="button" role="tab" data-tab="hash" aria-selected="true" class="on">Hash</button>
+        <button type="button" role="tab" data-tab="hmac" aria-selected="false">HMAC</button>
+        <button type="button" role="tab" data-tab="crc" aria-selected="false">CRC</button>
+        <button type="button" role="tab" data-tab="cipher" aria-selected="false">Cipher</button>
+        <button type="button" role="tab" data-tab="net" aria-selected="false">Net</button>
+        <button type="button" role="tab" data-tab="time" aria-selected="false">Time</button>
+        <button type="button" role="tab" data-tab="number" aria-selected="false">Num</button>
+        <button type="button" role="tab" data-tab="string" aria-selected="false">Strings</button>
+        <button type="button" role="tab" data-tab="encode" aria-selected="false">Encode</button>
+      </nav>
+
+      <section id="input" aria-labelledby="input-title">
+        <label id="input-title" class="title" for="input-value">Input:</label>
+        <textarea id="input-value" autofocus spellcheck="false"></textarea>
+        <div id="input-password-wrapper" hidden>
+          <label class="title" for="input-password">Password / HMAC key:</label>
+          <input id="input-password" type="password" autocomplete="off">
         </div>
-        <textarea id="input-value" style="min-width: 400px;" autofocus></textarea>
-        <div id="input-password-wrapper" style="display: none;">
-          <div class="title">
-            Password:
-          </div>
-          <input id="input-password" type="password" />
-        </div>
-      </div>
+      </section>
 
-      <!-- output -->
-      <div id="output">
-      </div>
-    </div>
-    
-    <div id="screen-2" class="screens">
+      <p id="status" role="status" aria-live="polite"></p>
+      <section id="output" aria-label="Results"></section>
+    </main>
 
-      <div style="position: absolute;">
-        <a href="" class="button">Back</a>
-      </div>
-      
-      <h1 style="text-align: center;">
-        About
-      </h1>
+    <main id="screen-2" class="screen" hidden>
+      <a href="#" class="button back-button">Back</a>
+      <h1>About Hasher</h1>
 
       <p>
-        This extension is used to compute cryptographic hashes and do common conversions. It might be useful for programmers and system administrators.
-        It's entirely implemented in JavaScript, all calculations are performed on client side, so <b>it's safe</b>.
+        Hasher is an offline developer toolbox. Input is processed locally and is never transmitted,
+        but legacy algorithms are provided only for compatibility and must not be used as security primitives.
       </p>
 
       <ul>
-        <li>
-          <b>Hash</b>:
-          MD5, SHA-1, SHA-2 (224, 256, 384, 512), RIPEMD-160, MD4, Whirpool
-        </li>
-        <li>
-          <b>HMAC</b>:
-          MD5, SHA-1, SHA-2 (224, 256, 384, 512), RIPEMD-160, MD4
-        </li>
-        <li>
-          <b>CRC</b>:
-          CRC-8, CRC-16, FCS-16, FCS/CRC-32
-        </li>
-        <li>
-          <b>Cipher</b> <i title='openssl enc -aes-256-cbc -in infile -out outfile -pass pass:"Secret Passphrase" -e -base64' style="cursor: help; border-bottom: 1px dashed #111;">(interoperable with OpenSSL)</i>:
-          AES-256, DES, Triple DES, Rabbit, RC4, RC4Drop. CBC/Pkcs7 is used.
-        </li>
-        <li>
-          <b>Net</b>:
-          Subnet calculator, Ip &harr; Dec, Ip &rarr; Bin, Ip &rarr; Hex
-        </li>
-        <li>
-          <b>Time</b>:
-          Unix &harr; Datetime, Unix &harr; RFC-1123, Unix &harr; ISO 8601
-        </li>
-        <li>
-          <b>Numbers</b>:
-          Dec &harr; Hex, Dec &harr; Bin, Dec &harr; Roman
-        </li>
-        <li>
-          <b>Strings</b>:
-          ASCII &harr; Hex, UTF-8 &harr; Hex, UTF-16 &harr; Hex
-        </li>
-        <li>
-          <b>Encode</b>:
-          Base64, ROT-13, JavaScript encodeURI(), encodeURIComponent(), HTML special chars encode/decode
-        </li>
+        <li><strong>Hash:</strong> MD4, MD5, SHA-1, SHA-2, RIPEMD-160, and Whirlpool</li>
+        <li><strong>HMAC:</strong> the same hash families, using UTF-8 input and key bytes</li>
+        <li><strong>CRC:</strong> CRC-8, CRC-16, FCS-16, and CRC-32 over UTF-8 bytes</li>
+        <li><strong>Cipher:</strong> AES-256-GCM with PBKDF2-HMAC-SHA256 and authenticated output</li>
+        <li><strong>Net:</strong> IPv4/subnet calculator, including CIDR /0 through /32</li>
+        <li><strong>Time, numbers, strings, and encoding:</strong> strict, lossless developer conversions</li>
       </ul>
 
+      <p>Click a Copy button to place a result on the clipboard.</p>
       <p>
-        <b>Usage:</b> enter text and click on the result. It will be <b>copied to clipboard</b>.
+        Legacy hashes are powered by
+        <a href="https://github.com/Daninet/hash-wasm" target="_blank" rel="noopener noreferrer">hash-wasm</a>
+        4.12.0. Modern authenticated encryption uses the browser Web Crypto API.
       </p>
-
       <p>
-        Extension is using <a href="http://code.google.com/p/crypto-js/" target="_blank">crypto-js</a> and other open-source libraries.<br/>
-        See the source code on&nbsp;<a href="http://github.com/s12v/hasher" target="_blank">github</a>.
+        Original project by Sergey Novikov. Source:
+        <a href="https://github.com/s12v/hasher" target="_blank" rel="noopener noreferrer">GitHub</a>.
       </p>
-
-      <p>
-        Developed by <a href="http://snov.me/" target="_blank">Sergey Novikov</a>
-      </p>
-    </div>
-    <script src="hasher.js" defer></script>
-    <script src="popup.js" defer></script>
+    </main>
   </body>
 </html>

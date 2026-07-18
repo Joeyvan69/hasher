@@ -1,992 +1,459 @@
+(function (root) {
+  "use strict";
 
-var tabs = {
-  hash : 1,
-  hmac : 2,
-  crc : 3,
-  cipher : 4,
-  net : 5,
-  time : 6,
-  encode : 7,
-  number : 8
-};
+  const tabs = Object.freeze({
+    hash: "hash",
+    hmac: "hmac",
+    crc: "crc",
+    cipher: "cipher",
+    net: "net",
+    time: "time",
+    number: "number",
+    string: "string",
+    encode: "encode"
+  });
 
-/*
- *  Copy to clipboard
- */
-function copyToClipboard(id) {
-  $("#"+id).select(); 
-  document.execCommand('copy');
-}
+  const MAX_INPUT_BYTES = 4 * 1024 * 1024;
+  const PBKDF2_ITERATIONS = 600000;
+  const CIPHER_PREFIX = "hasher:v2";
+  const utf8Encoder = new TextEncoder();
+  const utf8Decoder = new TextDecoder("utf-8", { fatal: true });
 
-
-var hasher = {
-  ipcalc : new ipCalc(),
-  tab : tabs.hash,
-  elements: {
-    h1 : {
-      id : tabs.hash+"md5",
-      tab : tabs.hash,
-      title : "MD5",
-      calculate : function (input) {
-        return CryptoJS.MD5(input);
-      }
-    },
-    h2 : {
-      id: tabs.hash+"sha1",
-      tab : tabs.hash,
-      title: "SHA-1",
-      calculate: function (input) {
-        return CryptoJS.SHA1(input);
-      }
-    },
-    h3 : {
-      id: tabs.hash+"sha224",
-      tab : tabs.hash,
-      title: "SHA-224",
-      calculate: function (input) {
-        return CryptoJS.SHA224(input);
-      }
-    },
-    h4 : {
-      id: tabs.hash+"sha256",
-      tab : tabs.hash,
-      title: "SHA-256",
-      calculate: function (input) {
-        return CryptoJS.SHA256(input);
-      }
-    },
-    h5 : {
-      id: tabs.hash+"sha384",
-      tab : tabs.hash,
-      title: "SHA-384",
-      calculate: function (input) {
-        return CryptoJS.SHA384(input);
-      }
-    },
-    h6 : {
-      id: tabs.hash+"sha512",
-      tab : tabs.hash,
-      title: "SHA-512",
-      calculate: function (input) {
-        return CryptoJS.SHA512(input);
-      }
-    },
-    h8 : {
-      id: tabs.hash+"ripemd160",
-      tab : tabs.hash,
-      title: "RIPEMD-160",
-      calculate: function (input) {
-        return hex_rmd160(input);
-      }
-    },
-    h7 : {
-      id: tabs.hash+"md4",
-      tab : tabs.hash,
-      title: "MD4",
-      calculate: function (input) {
-        return hex_md4(input);
-      }
-    },
-    h9 : {
-      id: tabs.hash+"whirpool",
-      tab : tabs.hash,
-      title: "Whirpool",
-      calculate: function (input) {
-        return Whirlpool(input);
-      }
-    },
-
-    // HMAC
-    hm1 : {
-      id : tabs.hmac+"md5",
-      tab : tabs.hmac,
-      title : "HMAC-MD5",
-      calculate : function (input, password) {
-        return CryptoJS.HmacMD5(input, password);
-      }
-    },
-    hm2 : {
-      id : tabs.hmac+"sha1",
-      tab : tabs.hmac,
-      title : "HMAC-SHA1",
-      calculate : function (input, password) {
-        return CryptoJS.HmacSHA1(input, password);
-      }
-    },
-    hm3: {
-      id : tabs.hmac+"sha224",
-      tab : tabs.hmac,
-      title : "HMAC-SHA224",
-      calculate : function (input, password) {
-        return CryptoJS.HmacSHA224(input, password);
-      }
-    },
-    hm4: {
-      id : tabs.hmac+"sha256",
-      tab : tabs.hmac,
-      title : "HMAC-SHA256",
-      calculate : function (input, password) {
-        return CryptoJS.HmacSHA256(input, password);
-      }
-    },
-    hm5: {
-      id : tabs.hmac+"sha384",
-      tab : tabs.hmac,
-      title : "HMAC-SHA256",
-      calculate : function (input, password) {
-        return CryptoJS.HmacSHA384(input, password);
-      }
-    },
-    hm6: {
-      id : tabs.hmac+"sha512",
-      tab : tabs.hmac,
-      title : "HMAC-SHA512",
-      calculate : function (input, password) {
-        return CryptoJS.HmacSHA512(input, password);
-      }
-    },
-    hm7: {
-      id : tabs.hmac+"ripemd160",
-      tab : tabs.hmac,
-      title : "HMAC-RIPEMD160",
-      calculate : function (input, password) {
-        return hex_hmac_rmd160(password, input);
-      }
-    },
-    hm8: {
-      id : tabs.hmac+"md4",
-      tab : tabs.hmac,
-      title : "HMAC-MD4",
-      calculate : function (input, password) {
-        return hex_hmac_md4(password, input);
-      }
-    },
-
-    // CRC
-    c1 : {
-      id: tabs.crc+"crc8",
-      tab : tabs.crc,
-      title: "CRC-8",
-      calculate: function (input) {
-        return Hex8(Crc8Str(input));
-      }
-    },
-    c2 : {
-      id: tabs.crc+"crc16",
-      tab : tabs.crc,
-      title: "CRC-16",
-      calculate: function (input) {
-        return Hex16(Crc16Str(input));
-      }
-    },
-    c3 : {
-      id: tabs.crc+"fsc16",
-      tab : tabs.crc,
-      title: "FCS-16",
-      calculate: function (input) {
-        return Hex16(Fcs16Str(input));
-      }
-    },
-    c4 : {
-      id: tabs.crc+"crc32b",
-      tab : tabs.crc,
-      title: "FCS/CRC-32",
-      calculate: function (input) {
-        return Hex32(Crc32Str(input));
-      }
-    },
-
-
-    // Cipher
-    ci1: {
-      id : tabs.cipher+"aes256",
-      tab : tabs.cipher,
-      title : "AES-256",
-      calculate : function (input, password) {
-        return CryptoJS.AES.encrypt(input, password);
-      }
-    },
-    ci2: {
-      id : tabs.cipher+"des",
-      tab : tabs.cipher,
-      title : "DES",
-      calculate : function (input, password) {
-        return CryptoJS.DES.encrypt(input, password);
-      }
-    },
-    ci3: {
-      id : tabs.cipher+"tripledes",
-      tab : tabs.cipher,
-      title : "TripleDES",
-      calculate : function (input, password) {
-        return CryptoJS.TripleDES.encrypt(input, password);
-      }
-    },
-    ci4: {
-      id : tabs.cipher+"rabbit",
-      tab : tabs.cipher,
-      title : "Rabbit",
-      calculate : function (input, password) {
-        return CryptoJS.Rabbit.encrypt(input, password);
-      }
-    },
-    ci5: {
-      id : tabs.cipher+"rc4",
-      tab : tabs.cipher,
-      title : "RC4",
-      calculate : function (input, password) {
-        return CryptoJS.RC4.encrypt(input, password);
-      }
-    },
-    ci6: {
-      id : tabs.cipher+"rc4drop",
-      tab : tabs.cipher,
-      title : "RC4Drop",
-      calculate : function (input, password) {
-        return CryptoJS.RC4Drop.encrypt(input, password);
-      }
-    },
-    ci7: {
-      id : tabs.cipher+"aes256-d",
-      tab : tabs.cipher,
-      title : "AES-256 decrypt",
-      calculate : function (input, password) {
-        try {
-          var words = CryptoJS.AES.decrypt(input, password);
-          return CryptoJS.enc.Utf8.stringify(words);
-        } catch (err) {
-          return "";
-        }
-      }
-    },
-    ci8: {
-      id : tabs.cipher+"des-d",
-      tab : tabs.cipher,
-      title : "DES decrypt",
-      calculate : function (input, password) {
-        try {
-          var words = CryptoJS.DES.decrypt(input, password);
-          return CryptoJS.enc.Utf8.stringify(words);
-        } catch (err) {
-          return "";
-        }
-      }
-    },
-    ci9: {
-      id : tabs.cipher+"tripledes-d",
-      tab : tabs.cipher,
-      title : "TripleDES decrypt",
-      calculate : function (input, password) {
-        try {
-          var words = CryptoJS.TripleDES.decrypt(input, password);
-          return CryptoJS.enc.Utf8.stringify(words);
-        } catch (err) {
-          return "";
-        }
-      }
-    },
-    ci10: {
-      id : tabs.cipher+"rabbit-d",
-      tab : tabs.cipher,
-      title : "Rabbit decrypt",
-      calculate : function (input, password) {
-        try {
-          var words = CryptoJS.Rabbit.decrypt(input, password);
-          return CryptoJS.enc.Utf8.stringify(words);
-        } catch (err) {
-          return "";
-        }
-      }
-    },
-    ci11: {
-      id : tabs.cipher+"rc4-d",
-      tab : tabs.cipher,
-      title : "RC4 decrypt",
-      calculate : function (input, password) {
-        try {
-          var words = CryptoJS.RC4.decrypt(input, password);
-          return CryptoJS.enc.Utf8.stringify(words);
-        } catch (err) {
-          return "";
-        }
-      }
-    },
-    ci12: {
-      id : tabs.cipher+"rc4drop-d",
-      tab : tabs.cipher,
-      title : "RC4Drop decrypt",
-      calculate : function (input, password) {
-        try {
-          var words = CryptoJS.RC4Drop.decrypt(input, password);
-          return CryptoJS.enc.Utf8.stringify(words);
-        } catch (err) {
-          return "";
-        }
-      }
-    },
-
-    // Net
-    net1 : {
-      id: tabs.net+"ip2dec",
-      tab : tabs.net,
-      title: "IP to Dec",
-      calculate: function (input) {
-        var ipcalc = hasher.ipcalc;
-        ipcalc.parse(input);
-        if (ipcalc.getIp() != null) {
-          return ipcalc.getIp();
-        } else {
-          return "";
-        }
-      }
-    },
-    // Net
-    net2 : {
-      id: tabs.net+"dec2ip",
-      tab : tabs.net,
-      title: "Dec to IP",
-      calculate: function (input) {
-        var ipcalc = hasher.ipcalc;
-        ipcalc.parse(input);
-        if (ipcalc.getIp() != null) {
-          return ipcalc.intToOctetString(ipcalc.getIp());
-        } else if (!ipcalc.isIpValid()) {
-          return "Invalid IP";
-        } else {
-          return "";
-        }
-      }
-    },
-    net3 : {
-      id: tabs.net+"ip2bin",
-      tab : tabs.net,
-      title: "IP to Bin",
-      ruler: 1,
-      calculate: function (input) {
-        var ipcalc = hasher.ipcalc;
-        ipcalc.parse(input);
-        if (ipcalc.getIp() != null) {
-          return ipcalc.getPaddedBinString(ipcalc.getIp());
-        } else {
-          return "";
-        }
-      }
-    },
-    net4 : {
-      id: tabs.net+"ip2hex",
-      tab : tabs.net,
-      title: "IP to Hex",
-      calculate: function (input) {
-        var ipcalc = hasher.ipcalc;
-        ipcalc.parse(input);
-        if (ipcalc.getIp() != null) {
-          return ipcalc.getIp().toString(16);
-        } else {
-          return "";
-        }
-      }
-    },
-    net5 : {
-      id: tabs.net+"network",
-      tab : tabs.net,
-      title: "Network / netmask",
-      calculate: function (input) {
-        var ipcalc = hasher.ipcalc;
-        ipcalc.parse(input);
-        if (ipcalc.getNetmask() != null) {
-          return ipcalc.intToOctetString(ipcalc.getNetwork()) + "/" + ipcalc.intToOctetString(ipcalc.getNetmask());
-        } else if (!ipcalc.isNetmaskValid()) {
-          return "Invalid netmask";
-        } else {
-          return "";
-        }
-      }
-    },
-    net6 : {
-      id: tabs.net+"hostmin",
-      tab : tabs.net,
-      title: "Min host",
-      calculate: function (input) {
-        var ipcalc = hasher.ipcalc;
-        ipcalc.parse(input);
-        if (ipcalc.getNetmask() != null) {
-          return ipcalc.intToOctetString(ipcalc.gethHostMin());
-        } else {
-          return "";
-        }
-      }
-    },
-    net7 : {
-      id: tabs.net+"hostmax",
-      tab : tabs.net,
-      title: "Max host",
-      calculate: function (input) {
-        var ipcalc = hasher.ipcalc;
-        ipcalc.parse(input);
-        if (ipcalc.getNetmask() != null) {
-          return ipcalc.intToOctetString(ipcalc.gethHostMax());
-        } else {
-          return "";
-        }
-      }
-    },
-    net8 : {
-      id: tabs.net+"broadcast",
-      tab : tabs.net,
-      title: "Broadcast",
-      calculate: function (input) {
-        var ipcalc = hasher.ipcalc;
-        ipcalc.parse(input);
-        if (ipcalc.getNetmask() != null) {
-          return ipcalc.intToOctetString(ipcalc.getBroadcast());
-        } else {
-          return "";
-        }
-      }
-    },
-    net9 : {
-      id: tabs.net+"hostnum",
-      tab : tabs.net,
-      title: "Hosts",
-      calculate: function (input) {
-        var ipcalc = hasher.ipcalc;
-        ipcalc.parse(input);
-        if (ipcalc.getNetmask() != null) {
-          return ipcalc.gethHostCount();
-        } else {
-          return "";
-        }
-      }
-    },
-
-
-    // Time
-    time1 : {
-      id: tabs.time+"date2ts",
-      tab : tabs.time,
-      title: "Unixtime",
-      calculate: function (input) {
-        var date;
-        if (/[^\d]/.test(input)) {
-          date = new Date(input);
-        } else {
-          date = new Date(1000*parseInt(input));
-        }
-        if (!isNaN(date.getTime())) {
-          return date.getTime()/1000;
-        }
-        return "";
-      }
-    },
-    time2 : {
-      id: tabs.time+"ts2date",
-      tab : tabs.time,
-      title: "Local time",
-      calculate: function (input) {
-        var date;
-        if (/[^\d]/.test(input)) {
-          date = new Date(input);
-        } else {
-          date = new Date(1000*parseInt(input));
-        }
-        if (!isNaN(date.getTime())) {
-          return date.toLocaleString();
-        }
-        return "";
-      }
-    },
-    time3 : {
-      id: tabs.time+"date2sql",
-      tab : tabs.time,
-      title: "DATETIME (local)",
-      calculate: function (input) {
-        var ddd;
-        if (/[^\d]/.test(input)) {
-          ddd = new Date(input);
-        } else {
-          ddd = new Date(1000*parseInt(input));
-        }
-        if (!isNaN(ddd.getTime())) {
-          var y = ddd.getFullYear();
-          var m = ddd.getMonth() + 1;
-          var d = ddd.getDate();
-          var h = ddd.getHours();
-          var i = ddd.getMinutes();
-          var s = ddd.getSeconds();
-          
-          m = (m < 10) ? "0" + m : m;
-          d = (d < 10) ? "0" + d : d;
-          h = (h < 10) ? "0" + h : h;
-          i = (i < 10) ? "0" + i : i;
-          s = (s < 10) ? "0" + s : s;
-          
-          return y + "-" + m + "-" + d + " " + h + ":" + i + ":" + s;
-        }
-        return "";
-      }
-    },
-    time31 : {
-      id: tabs.time+"date2sqlutc",
-      tab : tabs.time,
-      title: "DATETIME (UTC)",
-      calculate: function (input) {
-        var ddd;
-        if (/[^\d]/.test(input)) {
-          ddd = new Date(input);
-        } else {
-          ddd = new Date(1000*parseInt(input));
-        }
-        if (!isNaN(ddd.getTime())) {
-          var y = ddd.getUTCFullYear();
-          var m = ddd.getUTCMonth() + 1;
-          var d = ddd.getUTCDate();
-          var h = ddd.getUTCHours();
-          var i = ddd.getUTCMinutes();
-          var s = ddd.getUTCSeconds();
-          
-          m = (m < 10) ? "0" + m : m;
-          d = (d < 10) ? "0" + d : d;
-          h = (h < 10) ? "0" + h : h;
-          i = (i < 10) ? "0" + i : i;
-          s = (s < 10) ? "0" + s : s;
-          
-          return y + "-" + m + "-" + d + " " + h + ":" + i + ":" + s;
-        }
-        return "";
-      }
-    },
-    time4 : {
-      id: tabs.time+"ts2RFC1123",
-      tab : tabs.time,
-      title: "RFC-1123",
-      calculate: function (input) {
-        var date;
-        if (/[^\d]/.test(input)) {
-          date = new Date(input);
-        } else {
-          date = new Date(1000*parseInt(input));
-        }
-        if (!isNaN(date.getTime())) {
-          return date.toUTCString();
-        }
-        return "";
-      }
-    },
-    time5 : {
-      id: tabs.time+"date2iso",
-      tab : tabs.time,
-      title: "ISO 8601",
-      calculate: function (input) {
-        var date;
-        if (/[^\d]/.test(input)) {
-          date = new Date(input);
-        } else {
-          date = new Date(1000*parseInt(input));
-        }
-        if (!isNaN(date.getTime())) {
-          return date.toISOString();
-        }
-        return "";
-      }
-    },
-
-
-    // Numbers
-    n5 : {
-      id: tabs.number+"i5",
-      tab : tabs.number,
-      title: "Dec to Hex",
-      ruler: 1,
-      calculate: function (input) {
-        return numbers.decToHex(input);
-      }
-    },
-    n6 : {
-      id: tabs.number+"i6",
-      tab : tabs.number,
-      title: "Hex to Dec",
-      calculate: function (input) {
-        return numbers.hexToDec(input);
-      }
-    },
-    n7 : {
-      id: tabs.number+"i7",
-      tab : tabs.number,
-      title: "Dec to Bin",
-      ruler: 1,
-      calculate: function (input) {
-        return numbers.decToBin(input);
-      }
-    },
-    n8 : {
-      id: tabs.number+"i8",
-      tab : tabs.number,
-      title: "Bin to Dec",
-      calculate: function (input) {
-        return numbers.binToDec(input);
-      }
-    },
-    n9 : {
-      id: tabs.number+"i3",
-      tab : tabs.number,
-      title: "Dec to Roman",
-      calculate: function (input) {
-        var rc = new RomanConverter();
-        return rc.decToRoman(input);
-      }
-    },
-    n10 : {
-      id: tabs.number+"i4",
-      tab : tabs.number,
-      title: "Roman to Dec",
-      calculate: function (input) {
-        var rc = new RomanConverter();
-        return rc.romanToDec(input);
-      }
-    },
-
-
-    // Strings
-    s1 : {
-      id: tabs.string+"i1",
-      tab : tabs.string,
-      title: "ASCII to Hex",
-      ruler: 2,
-      calculate: function (input) {
-        try {
-          var words = CryptoJS.enc.Latin1.parse(input);
-          return CryptoJS.enc.Hex.stringify(words);
-        } catch (err) {
-          return "Parse error";
-        }
-      }
-    },
-    s2 : {
-      id: tabs.string+"i2",
-      tab : tabs.string,
-      title: "Hex to ASCII",
-      calculate: function (input) {
-        if (/[^0-9a-f]/i.test(input)) {
-          return "NaN";
-        }
-        try {
-          var words = CryptoJS.enc.Hex.parse(input);
-          return CryptoJS.enc.Latin1.stringify(words);
-        } catch (err) {
-          return "Parse error";
-        }
-        return "";
-      }
-    },
-    s3 : {
-      id: tabs.string+"utf8-hex",
-      tab : tabs.string,
-      title: "UTF-8 to Hex",
-      ruler: 2,
-      calculate: function (input) {
-        try {
-          var words = CryptoJS.enc.Utf8.parse(input);
-          return CryptoJS.enc.Hex.stringify(words);
-        } catch (err) {
-          return "Parse error";
-        }
-      }
-    },
-    s4 : {
-      id: tabs.string+"hex-utf8",
-      tab : tabs.string,
-      title: "Hex to UTF-8",
-      calculate: function (input) {
-        if (/[^0-9a-f]/i.test(input)) {
-          return "NaN";
-        }
-        try {
-          var words = CryptoJS.enc.Hex.parse(input);
-          return CryptoJS.enc.Utf8.stringify(words);
-        } catch (err) {
-          return "Parse error";
-        }
-        return "";
-      }
-    },
-    s5 : {
-      id: tabs.string+"utf16-hex",
-      tab : tabs.string,
-      title: "UTF-16 to Hex",
-      ruler: 2,
-      calculate: function (input) {
-        try {
-          var words = CryptoJS.enc.Utf16.parse(input);
-          return CryptoJS.enc.Hex.stringify(words);
-        } catch (err) {
-          return "Parse error";
-        }
-      }
-    },
-    s6 : {
-      id: tabs.string+"hex-utf16",
-      tab : tabs.string,
-      title: "Hex to UTF-16",
-      calculate: function (input) {
-        if (/[^0-9a-f]/i.test(input)) {
-          return "NaN";
-        }
-        try {
-          var words = CryptoJS.enc.Hex.parse(input);
-          return CryptoJS.enc.Utf16.stringify(words);
-        } catch (err) {
-          return "Parse error";
-        }
-        return "";
-      }
-    },
-
-
-    // Encode
-    e1: {
-      id : tabs.encode+"base64",
-      tab : tabs.encode,
-      title : "Base64",
-      calculate : function (input) {
-        try {
-          var words = CryptoJS.enc.Utf8.parse(input);
-          return CryptoJS.enc.Base64.stringify(words);
-        } catch (err) {
-          return "Parse error";
-        }
-      }
-    },
-    e2: {
-      id : tabs.encode+"base64-d",
-      tab : tabs.encode,
-      title : "Base64 decode",
-      calculate : function (input) {
-        try {
-          var words = CryptoJS.enc.Base64.parse(input);
-          return CryptoJS.enc.Utf8.stringify(words);
-        } catch (err) {
-          return "";
-        }
-      }
-    },
-    e3: {
-      id : tabs.encode+"base64-d-h",
-      tab : tabs.encode,
-      title : "Base64 decode to Hex",
-      ruler: 2,
-      calculate : function (input) {
-        try {
-          var words = CryptoJS.enc.Base64.parse(input);
-          return CryptoJS.enc.Hex.stringify(words);
-        } catch (err) {
-          return "Parse error";
-        }
-      }
-    },
-    e4: {
-      id : tabs.encode+"encodeURI",
-      tab : tabs.encode,
-      title : "JavaScript encodeURI()",
-      calculate : function (input) {
-        return encodeURI(input);
-      }
-    },
-    e5: {
-      id : tabs.encode+"encodeURIComponent",
-      tab : tabs.encode,
-      title : "JavaScript encodeURIComponent()",
-      calculate : function (input) {
-        return encodeURIComponent(input);
-      }
-    },
-    e6: {
-      id : tabs.encode+"decodeURI",
-      tab : tabs.encode,
-      title : "JavaScript decodeURI()",
-      calculate : function (input) {
-        return decodeURI(input);
-      }
-    },
-    e7: {
-      id : tabs.encode+"decodeURIComponent",
-      tab : tabs.encode,
-      title : "JavaScript decodeURIComponent()",
-      calculate : function (input) {
-        return decodeURIComponent(input);
-      }
-    },
-    e8: {
-      id : tabs.encode+"htmlspecialchars",
-      tab : tabs.encode,
-      title : "HTML special chars",
-      calculate : function (input) {
-        function escapeHtml(html) {
-          return html
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
-            .replace(/'/g, "&#039;");
-        }          
-
-        return escapeHtml(input);
-      }
-    },
-    e9: {
-      id : tabs.encode+"htmlspecialchars-d",
-      tab : tabs.encode,
-      title : "HTML special chars decode",
-      calculate : function (input) {
-        function unescapeHtml(html) {
-          return html
-            .replace(/&amp;/g, "&")
-            .replace(/&lt;/g, "<")
-            .replace(/&gt;/g, ">")
-            .replace(/&quot;/g, '"')
-            .replace(/&#039;/g, "'");
-        }          
-
-        return unescapeHtml(input);
-      }
-    },
-    e10: {
-      id : tabs.encode+"rot13",
-      tab : tabs.encode,
-      title : "ROT13 encode/decode",
-      calculate : function (input) {
-        var renc = new Rot13();
-        return renc.encode(input);
-      }
+  function requireHashWasm() {
+    if (!root.hashwasm) {
+      throw new Error("The hashing library did not load. Reload the extension and try again.");
     }
-  },
-  getElementById : function (id) {
-    for (i in this.elements) {
-      if (this.elements[i].id == id) {
-        return this.elements[i];
-      }
-    }
-    return null;
-  },
-  /*
-   */
-  init : function () {
-    // render HTML
-    this.render();
-    // Register click events
-    for (var i in this.elements) {
-      if (this.elements[i].tab == this.tab) {
-        // expand textarea
-        $("#"+this.elements[i].id+"-expand").click(function () {
-          var id = this.id.toString().replace("-expand", "");
-          if (!$("#"+this.id).hasClass("on")) {
-            var element = hasher.getElementById(id);
-            if (element) {
-              $("#"+id).attr("rows", element.rows);
-            }
-            //var h = $("#"+id)[0].scrollHeight;
-            //$("#"+id).height(h);
-          } else {
-            $("#"+id).attr("rows", "1");
-            //$("#"+id).height("auto");
-          }
-          $("#"+this.id).toggleClass("on");
-        });
-        // copy to clibboard on click
-        $("#"+this.elements[i].id+"-value").click(function () {
-          $("#output .note").hide();
-          var id = this.id.toString().replace("-value", "");
-          if ($("#"+id).val().length > 0) {
-            $("#"+id+"-note").text("copied").show('fast');
-            copyToClipboard(id);
-          }
-        });
-      }
-    }
-  },
-  /*
-   * Recalculate
-   */
-  update : function () {
-    $("#output .note").hide();
-    var input = $("#input-value").val();
-    var password = $("#input-password").val();
-    for (var i in this.elements) {
-      this.elements[i].rows = 0;
-      if (this.elements[i].tab == this.tab) {
-        // main calculation
-        var value = this.elements[i].calculate(input, password);
-        $("#"+this.elements[i].id).val(value);
-
-        // expand
-        var res = value.toString().match(/(\n\r|\r\n|\n|\r)/g);
-        var rows = 1;
-        if (res != null && res.length != undefined) {
-          rows = res.length + 1;
-        }
-        
-        this.elements[i].rows = rows;
-        if (rows > 1) {
-          $("#"+this.elements[i].id+"-expand").show().text(rows + " lines").show();
-        } else {
-          $("#"+this.elements[i].id+"-expand").text("").hide();
-        }
-
-        // show ruler
-        if (this.elements[i].ruler != undefined) {
-          $("#"+this.elements[i].id+"-ruler").html(this.ruler(value, this.elements[i].ruler));
-        }
-      }
-    }
-  },
-  /*
-   * 
-   */
-  render : function () {
-    $("#output").html("");
-    for (var i in this.elements) {
-      if (this.elements[i].tab == this.tab) {
-        var html = 
-          '<div class="element">'+
-            '<div>'+
-              '<span id="'+this.elements[i].id+'-title" class="title">'+
-                this.elements[i].title+
-              '</span>'+
-              '<span id="'+this.elements[i].id+'-expand" class="expand"></span>'+
-              '<span id="'+this.elements[i].id+'-note" class="note"></span>'+
-            '</div>'+
-            '<div id="'+this.elements[i].id+'-value" class="value">'+
-              //'<input id="'+this.elements[i].id+'" type="text" />';
-              '<textarea id="'+this.elements[i].id+'" rows="1"></textarea>';
-              // ruler
-              if (this.elements[i].ruler != undefined) {
-                html += '<div id="'+this.elements[i].id+'-ruler" class="ruler"></div>'
-              }
-        html += 
-            '</div>'+
-          '</div>';
-        $("#output").append(html);
-      }
-    }
-  },
-  /*
-   * Symbol's numbers
-   */
-  ruler : function (value, type) {
-    var html = "";
-    var length = value.length;
-    if (type == -1) {
-      for (var i = 0; i < value.length; i++) {
-        html += '<span title="'+(length - i - 1)+'">&nbsp;</span>';
-      }
-    } else if (type == 2) {
-      for (i = 0; i < value.length; i+= 2) {
-        html += '<span title="'+(i/2 + 1)+'">&nbsp;&nbsp;</span>';
-      }
-    } else {
-      for (i = 0; i < value.length; i++) {
-        html += '<span title="'+(i+1)+'">&nbsp;</span>';
-      }
-    }
-    return html;
+    return root.hashwasm;
   }
-}
+
+  function bytesToHex(bytes) {
+    return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+  }
+
+  function hexToBytes(value) {
+    const input = value.trim();
+    if (input.length % 2 !== 0) throw new Error("Hex input must contain complete bytes (an even number of digits).");
+    if (!/^[0-9a-f]*$/i.test(input)) throw new Error("Hex input contains a non-hexadecimal character.");
+    const result = new Uint8Array(input.length / 2);
+    for (let index = 0; index < result.length; index += 1) {
+      result[index] = Number.parseInt(input.slice(index * 2, index * 2 + 2), 16);
+    }
+    return result;
+  }
+
+  function bytesToBase64(bytes) {
+    if (typeof btoa === "function") {
+      let binary = "";
+      const chunkSize = 0x8000;
+      for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+        binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
+      }
+      return btoa(binary);
+    }
+    return Buffer.from(bytes).toString("base64");
+  }
+
+  function base64ToBytes(value, urlSafe = false) {
+    let input = value.replace(/\s+/g, "");
+    if (urlSafe) input = input.replace(/-/g, "+").replace(/_/g, "/");
+    const hasPadding = input.includes("=");
+    if (!/^[A-Za-z0-9+/]*={0,2}$/.test(input) || input.length % 4 === 1 || (hasPadding && input.length % 4 !== 0) || /=/.test(input.slice(0, -2))) {
+      throw new Error("Invalid Base64 input.");
+    }
+    input = input.replace(/=+$/, "");
+    input += "=".repeat((4 - (input.length % 4)) % 4);
+    try {
+      let bytes;
+      if (typeof atob === "function") {
+        const binary = atob(input);
+        bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+      } else {
+        bytes = new Uint8Array(Buffer.from(input, "base64"));
+      }
+      if (bytesToBase64(bytes) !== input) throw new Error("Invalid Base64 input.");
+      return bytes;
+    } catch (_error) {
+      throw new Error("Invalid Base64 input.");
+    }
+  }
+
+  function bytesToBase64Url(bytes) {
+    return bytesToBase64(bytes).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  }
+
+  function parseInteger(input, radix, label) {
+    const value = input.trim();
+    const patterns = {
+      2: /^[+-]?[01]+$/,
+      10: /^[+-]?\d+$/,
+      16: /^[+-]?(?:0x)?[0-9a-f]+$/i
+    };
+    if (!patterns[radix].test(value)) throw new Error(`Invalid ${label} integer.`);
+    const sign = value.startsWith("-") ? -1n : 1n;
+    const unsigned = value.replace(/^[+-]/, "").replace(/^0x/i, "");
+    const prefix = radix === 2 ? "0b" : radix === 16 ? "0x" : "";
+    return sign * BigInt(prefix + unsigned);
+  }
+
+  function formatInteger(value, radix) {
+    return value < 0n ? `-${(-value).toString(radix)}` : value.toString(radix);
+  }
+
+  function parseDate(input) {
+    const value = input.trim();
+    if (!value) throw new Error("Enter a Unix timestamp or date.");
+    const numeric = /^[+-]?\d+(?:\.\d+)?$/.test(value);
+    const date = numeric ? new Date(Number(value) * 1000) : new Date(value);
+    if (!Number.isFinite(date.getTime())) throw new Error("Invalid date or Unix timestamp.");
+    return date;
+  }
+
+  function pad(value) {
+    return String(value).padStart(2, "0");
+  }
+
+  function formatSqlDate(date, utc) {
+    const get = (name) => date[`${utc ? "getUTC" : "get"}${name}`]();
+    return `${get("FullYear")}-${pad(get("Month") + 1)}-${pad(get("Date"))} ${pad(get("Hours"))}:${pad(get("Minutes"))}:${pad(get("Seconds"))}`;
+  }
+
+  function rot13(input) {
+    return input.replace(/[A-Za-z]/g, (character) => {
+      const base = character <= "Z" ? 65 : 97;
+      return String.fromCharCode(((character.charCodeAt(0) - base + 13) % 26) + base);
+    });
+  }
+
+  function encodeHtml(input) {
+    return input.replace(/[&<>"']/g, (character) => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      "\"": "&quot;",
+      "'": "&#39;"
+    })[character]);
+  }
+
+  function decodeHtml(input) {
+    return input.replace(/&(amp|lt|gt|quot|#39|#x27);/gi, (entity) => ({
+      "&amp;": "&",
+      "&lt;": "<",
+      "&gt;": ">",
+      "&quot;": "\"",
+      "&#39;": "'",
+      "&#x27;": "'"
+    })[entity.toLowerCase()]);
+  }
+
+  function asciiToBytes(input) {
+    const bytes = new Uint8Array(input.length);
+    for (let index = 0; index < input.length; index += 1) {
+      const code = input.charCodeAt(index);
+      if (code > 0x7f) throw new Error("ASCII supports character codes 0 through 127 only.");
+      bytes[index] = code;
+    }
+    return bytes;
+  }
+
+  function bytesToAscii(bytes) {
+    if (bytes.some((byte) => byte > 0x7f)) throw new Error("The byte sequence contains non-ASCII values.");
+    let result = "";
+    const chunkSize = 0x8000;
+    for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+      result += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
+    }
+    return result;
+  }
+
+  function utf16BeToHex(input) {
+    const bytes = new Uint8Array(input.length * 2);
+    for (let index = 0; index < input.length; index += 1) {
+      const code = input.charCodeAt(index);
+      bytes[index * 2] = code >>> 8;
+      bytes[index * 2 + 1] = code & 0xff;
+    }
+    return bytesToHex(bytes);
+  }
+
+  function hexToUtf16Be(input) {
+    const bytes = hexToBytes(input);
+    if (bytes.length % 2 !== 0) throw new Error("UTF-16BE hex input must contain complete 16-bit code units.");
+    let output = "";
+    for (let index = 0; index < bytes.length; index += 2) {
+      output += String.fromCharCode((bytes[index] << 8) | bytes[index + 1]);
+    }
+    return output;
+  }
+
+  async function hash(factory, input) {
+    const library = requireHashWasm();
+    return library[factory](utf8Encoder.encode(input));
+  }
+
+  async function hmac(factory, input, key) {
+    const library = requireHashWasm();
+    const calculator = await library.createHMAC(library[factory](), utf8Encoder.encode(key));
+    calculator.update(utf8Encoder.encode(input));
+    return calculator.digest("hex");
+  }
+
+  function getCrypto() {
+    if (!root.crypto || !root.crypto.subtle) throw new Error("Web Crypto is unavailable in this context.");
+    return root.crypto;
+  }
+
+  async function deriveAesKey(password, salt, iterations) {
+    if (!password) throw new Error("A password is required.");
+    const webCrypto = getCrypto();
+    const material = await webCrypto.subtle.importKey("raw", utf8Encoder.encode(password), "PBKDF2", false, ["deriveKey"]);
+    return webCrypto.subtle.deriveKey(
+      { name: "PBKDF2", hash: "SHA-256", salt, iterations },
+      material,
+      { name: "AES-GCM", length: 256 },
+      false,
+      ["encrypt", "decrypt"]
+    );
+  }
+
+  async function encrypt(input, password) {
+    const webCrypto = getCrypto();
+    const salt = webCrypto.getRandomValues(new Uint8Array(16));
+    const iv = webCrypto.getRandomValues(new Uint8Array(12));
+    const key = await deriveAesKey(password, salt, PBKDF2_ITERATIONS);
+    const encrypted = new Uint8Array(await webCrypto.subtle.encrypt({ name: "AES-GCM", iv }, key, utf8Encoder.encode(input)));
+    return [CIPHER_PREFIX, PBKDF2_ITERATIONS, bytesToBase64Url(salt), bytesToBase64Url(iv), bytesToBase64Url(encrypted)].join(":");
+  }
+
+  async function decrypt(input, password) {
+    const parts = input.trim().split(":");
+    if (parts.length !== 6 || `${parts[0]}:${parts[1]}` !== CIPHER_PREFIX) {
+      throw new Error("Unsupported ciphertext format. Expected a Hasher v2 AES-GCM value.");
+    }
+    const iterations = Number(parts[2]);
+    if (!Number.isSafeInteger(iterations) || iterations < 100000 || iterations > 2000000) {
+      throw new Error("Ciphertext contains an unsafe PBKDF2 iteration count.");
+    }
+    const salt = base64ToBytes(parts[3], true);
+    const iv = base64ToBytes(parts[4], true);
+    const ciphertext = base64ToBytes(parts[5], true);
+    if (salt.length !== 16 || iv.length !== 12 || ciphertext.length < 16) throw new Error("Ciphertext parameters are invalid.");
+    const webCrypto = getCrypto();
+    const key = await deriveAesKey(password, salt, iterations);
+    try {
+      const plaintext = await webCrypto.subtle.decrypt({ name: "AES-GCM", iv }, key, ciphertext);
+      return utf8Decoder.decode(plaintext);
+    } catch (_error) {
+      throw new Error("Decryption failed. Check the password and ciphertext integrity.");
+    }
+  }
+
+  function ipResult(input, selector, requiresMask = false) {
+    const calculator = new root.ipCalc();
+    calculator.parse(input);
+    if (!calculator.isIpValid()) throw new Error("Invalid IPv4 address or decimal value.");
+    if (requiresMask && !calculator.isNetmaskValid()) throw new Error("Add a valid CIDR prefix or contiguous dotted netmask.");
+    return selector(calculator);
+  }
+
+  const elements = [
+    { id: "hash-md4", tab: tabs.hash, title: "MD4", legacy: true, calculate: (input) => hash("md4", input) },
+    { id: "hash-md5", tab: tabs.hash, title: "MD5", legacy: true, calculate: (input) => hash("md5", input) },
+    { id: "hash-sha1", tab: tabs.hash, title: "SHA-1", legacy: true, calculate: (input) => hash("sha1", input) },
+    { id: "hash-sha224", tab: tabs.hash, title: "SHA-224", calculate: (input) => hash("sha224", input) },
+    { id: "hash-sha256", tab: tabs.hash, title: "SHA-256", calculate: (input) => hash("sha256", input) },
+    { id: "hash-sha384", tab: tabs.hash, title: "SHA-384", calculate: (input) => hash("sha384", input) },
+    { id: "hash-sha512", tab: tabs.hash, title: "SHA-512", calculate: (input) => hash("sha512", input) },
+    { id: "hash-ripemd160", tab: tabs.hash, title: "RIPEMD-160", legacy: true, calculate: (input) => hash("ripemd160", input) },
+    { id: "hash-whirlpool", tab: tabs.hash, title: "Whirlpool", legacy: true, calculate: (input) => hash("whirlpool", input) },
+
+    { id: "hmac-md4", tab: tabs.hmac, title: "HMAC-MD4", legacy: true, calculate: (input, key) => hmac("createMD4", input, key) },
+    { id: "hmac-md5", tab: tabs.hmac, title: "HMAC-MD5", legacy: true, calculate: (input, key) => hmac("createMD5", input, key) },
+    { id: "hmac-sha1", tab: tabs.hmac, title: "HMAC-SHA-1", legacy: true, calculate: (input, key) => hmac("createSHA1", input, key) },
+    { id: "hmac-sha224", tab: tabs.hmac, title: "HMAC-SHA-224", calculate: (input, key) => hmac("createSHA224", input, key) },
+    { id: "hmac-sha256", tab: tabs.hmac, title: "HMAC-SHA-256", calculate: (input, key) => hmac("createSHA256", input, key) },
+    { id: "hmac-sha384", tab: tabs.hmac, title: "HMAC-SHA-384", calculate: (input, key) => hmac("createSHA384", input, key) },
+    { id: "hmac-sha512", tab: tabs.hmac, title: "HMAC-SHA-512", calculate: (input, key) => hmac("createSHA512", input, key) },
+    { id: "hmac-ripemd160", tab: tabs.hmac, title: "HMAC-RIPEMD-160", legacy: true, calculate: (input, key) => hmac("createRIPEMD160", input, key) },
+
+    { id: "crc-8", tab: tabs.crc, title: "CRC-8", calculate: (input) => root.Hex8(root.Crc8Str(input)) },
+    { id: "crc-16", tab: tabs.crc, title: "CRC-16/CCITT-0", calculate: (input) => root.Hex16(root.Crc16Str(input)) },
+    { id: "fcs-16", tab: tabs.crc, title: "FCS-16", calculate: (input) => root.Hex16(root.Fcs16Str(input)) },
+    { id: "crc-32", tab: tabs.crc, title: "CRC-32", calculate: (input) => root.Hex32(root.Crc32Str(input)) },
+
+    { id: "cipher-encrypt", tab: tabs.cipher, title: "AES-256-GCM encrypt", calculate: encrypt },
+    { id: "cipher-decrypt", tab: tabs.cipher, title: "AES-256-GCM decrypt", calculate: decrypt },
+
+    { id: "net-decimal", tab: tabs.net, title: "IPv4 as decimal", calculate: (input) => ipResult(input, (ip) => String(ip.getIp())) },
+    { id: "net-ipv4", tab: tabs.net, title: "Decimal as IPv4", calculate: (input) => ipResult(input, (ip) => ip.intToOctetString(ip.getIp())) },
+    { id: "net-binary", tab: tabs.net, title: "IPv4 as binary", calculate: (input) => ipResult(input, (ip) => ip.getPaddedBinString(ip.getIp())) },
+    { id: "net-hex", tab: tabs.net, title: "IPv4 as hex", calculate: (input) => ipResult(input, (ip) => `0x${ip.getIp().toString(16).padStart(8, "0")}`) },
+    { id: "net-network", tab: tabs.net, title: "Network / netmask", calculate: (input) => ipResult(input, (ip) => `${ip.intToOctetString(ip.getNetwork())}/${ip.intToOctetString(ip.getNetmask())}`, true) },
+    { id: "net-host-min", tab: tabs.net, title: "Minimum host", calculate: (input) => ipResult(input, (ip) => ip.intToOctetString(ip.getHostMin()), true) },
+    { id: "net-host-max", tab: tabs.net, title: "Maximum host", calculate: (input) => ipResult(input, (ip) => ip.intToOctetString(ip.getHostMax()), true) },
+    { id: "net-broadcast", tab: tabs.net, title: "Broadcast", calculate: (input) => ipResult(input, (ip) => ip.intToOctetString(ip.getBroadcast()), true) },
+    { id: "net-host-count", tab: tabs.net, title: "Usable addresses", calculate: (input) => ipResult(input, (ip) => String(ip.getHostCount()), true) },
+
+    { id: "time-unix", tab: tabs.time, title: "Unix timestamp", calculate: (input) => String(parseDate(input).getTime() / 1000) },
+    { id: "time-local", tab: tabs.time, title: "Local time", calculate: (input) => parseDate(input).toLocaleString() },
+    { id: "time-sql-local", tab: tabs.time, title: "DATETIME (local)", calculate: (input) => formatSqlDate(parseDate(input), false) },
+    { id: "time-sql-utc", tab: tabs.time, title: "DATETIME (UTC)", calculate: (input) => formatSqlDate(parseDate(input), true) },
+    { id: "time-rfc1123", tab: tabs.time, title: "RFC 1123", calculate: (input) => parseDate(input).toUTCString() },
+    { id: "time-iso8601", tab: tabs.time, title: "ISO 8601", calculate: (input) => parseDate(input).toISOString() },
+
+    { id: "number-dec-hex", tab: tabs.number, title: "Decimal to hex", calculate: (input) => formatInteger(parseInteger(input, 10, "decimal"), 16) },
+    { id: "number-hex-dec", tab: tabs.number, title: "Hex to decimal", calculate: (input) => formatInteger(parseInteger(input, 16, "hexadecimal"), 10) },
+    { id: "number-dec-bin", tab: tabs.number, title: "Decimal to binary", calculate: (input) => formatInteger(parseInteger(input, 10, "decimal"), 2) },
+    { id: "number-bin-dec", tab: tabs.number, title: "Binary to decimal", calculate: (input) => formatInteger(parseInteger(input, 2, "binary"), 10) },
+    { id: "number-dec-roman", tab: tabs.number, title: "Decimal to Roman", calculate: (input) => new root.RomanConverter().decToRoman(input) },
+    { id: "number-roman-dec", tab: tabs.number, title: "Roman to decimal", calculate: (input) => String(new root.RomanConverter().romanToDec(input)) },
+
+    { id: "string-ascii-hex", tab: tabs.string, title: "ASCII to hex", calculate: (input) => bytesToHex(asciiToBytes(input)) },
+    { id: "string-hex-ascii", tab: tabs.string, title: "Hex to ASCII", calculate: (input) => bytesToAscii(hexToBytes(input)) },
+    { id: "string-utf8-hex", tab: tabs.string, title: "UTF-8 to hex", calculate: (input) => bytesToHex(utf8Encoder.encode(input)) },
+    { id: "string-hex-utf8", tab: tabs.string, title: "Hex to UTF-8", calculate: (input) => utf8Decoder.decode(hexToBytes(input)) },
+    { id: "string-utf16be-hex", tab: tabs.string, title: "UTF-16BE to hex", calculate: utf16BeToHex },
+    { id: "string-hex-utf16be", tab: tabs.string, title: "Hex to UTF-16BE", calculate: hexToUtf16Be },
+
+    { id: "encode-base64", tab: tabs.encode, title: "Base64 encode", calculate: (input) => bytesToBase64(utf8Encoder.encode(input)) },
+    { id: "encode-base64-text", tab: tabs.encode, title: "Base64 decode to UTF-8", calculate: (input) => utf8Decoder.decode(base64ToBytes(input)) },
+    { id: "encode-base64-hex", tab: tabs.encode, title: "Base64 decode to hex", calculate: (input) => bytesToHex(base64ToBytes(input)) },
+    { id: "encode-uri", tab: tabs.encode, title: "encodeURI", calculate: encodeURI },
+    { id: "decode-uri", tab: tabs.encode, title: "decodeURI", calculate: decodeURI },
+    { id: "encode-uri-component", tab: tabs.encode, title: "encodeURIComponent", calculate: encodeURIComponent },
+    { id: "decode-uri-component", tab: tabs.encode, title: "decodeURIComponent", calculate: decodeURIComponent },
+    { id: "encode-html", tab: tabs.encode, title: "HTML escape", calculate: encodeHtml },
+    { id: "decode-html", tab: tabs.encode, title: "HTML unescape (one pass)", calculate: decodeHtml },
+    { id: "encode-rot13", tab: tabs.encode, title: "ROT13", calculate: rot13 }
+  ];
+
+  async function calculateTab(tab, input, password = "") {
+    const bytes = utf8Encoder.encode(input).length;
+    if (bytes > MAX_INPUT_BYTES) throw new Error("Input exceeds the 4 MiB safety limit.");
+    const active = elements.filter((element) => element.tab === tab);
+    return Promise.all(active.map(async (element) => {
+      try {
+        const value = await element.calculate(input, password);
+        return { id: element.id, title: element.title, legacy: Boolean(element.legacy), value: String(value), error: null };
+      } catch (error) {
+        return { id: element.id, title: element.title, legacy: Boolean(element.legacy), value: "", error: error instanceof Error ? error.message : String(error) };
+      }
+    }));
+  }
+
+  let updateSequence = 0;
+  const hasher = {
+    tab: tabs.hash,
+
+    setTab(tab) {
+      if (!Object.values(tabs).includes(tab)) throw new Error(`Unknown tab: ${tab}`);
+      this.tab = tab;
+      this.render();
+    },
+
+    render() {
+      const output = root.document && root.document.getElementById("output");
+      if (!output) return;
+      output.replaceChildren();
+      for (const element of elements.filter((item) => item.tab === this.tab)) {
+        const article = document.createElement("article");
+        article.className = "result";
+        article.dataset.resultId = element.id;
+
+        const header = document.createElement("div");
+        header.className = "result-header";
+        const title = document.createElement("label");
+        title.className = "result-title";
+        title.htmlFor = `result-${element.id}`;
+        title.textContent = element.title;
+        header.append(title);
+        if (element.legacy) {
+          const badge = document.createElement("span");
+          badge.className = "legacy-badge";
+          badge.textContent = "Legacy";
+          badge.title = "For compatibility only; do not use this algorithm for security.";
+          header.append(badge);
+        }
+        const metadata = document.createElement("span");
+        metadata.className = "result-meta";
+        header.append(metadata);
+
+        const controls = document.createElement("div");
+        controls.className = "result-controls";
+        const value = document.createElement("textarea");
+        value.id = `result-${element.id}`;
+        value.className = "result-value";
+        value.readOnly = true;
+        value.rows = 1;
+        value.spellcheck = false;
+        const copy = document.createElement("button");
+        copy.type = "button";
+        copy.className = "copy-button";
+        copy.dataset.copyTarget = value.id;
+        copy.textContent = "Copy";
+        const expand = document.createElement("button");
+        expand.type = "button";
+        expand.className = "expand-button";
+        expand.dataset.expandTarget = value.id;
+        expand.textContent = "Expand";
+        expand.hidden = true;
+        controls.append(value, copy, expand);
+        article.append(header, controls);
+        output.append(article);
+      }
+    },
+
+    async update() {
+      const input = root.document && root.document.getElementById("input-value");
+      const password = root.document && root.document.getElementById("input-password");
+      const status = root.document && root.document.getElementById("status");
+      if (!input || !password) return;
+      const sequence = ++updateSequence;
+      if (status) status.textContent = "Calculating…";
+      let results;
+      try {
+        results = await calculateTab(this.tab, input.value, password.value);
+      } catch (error) {
+        if (sequence === updateSequence) {
+          if (status) status.textContent = error.message;
+          for (const article of document.querySelectorAll(".result")) {
+            article.classList.add("result-error");
+            const value = article.querySelector(".result-value");
+            const metadata = article.querySelector(".result-meta");
+            if (value) value.value = `Error: ${error.message}`;
+            if (metadata) metadata.textContent = "";
+          }
+        }
+        return;
+      }
+      if (sequence !== updateSequence) return;
+      let errors = 0;
+      for (const result of results) {
+        const article = document.querySelector(`[data-result-id="${result.id}"]`);
+        const value = document.getElementById(`result-${result.id}`);
+        if (!article || !value) continue;
+        article.classList.toggle("result-error", Boolean(result.error));
+        value.value = result.error ? `Error: ${result.error}` : result.value;
+        const meta = article.querySelector(".result-meta");
+        if (meta) meta.textContent = result.error ? "" : `${utf8Encoder.encode(result.value).length} bytes`;
+        const expand = article.querySelector(".expand-button");
+        if (expand) expand.hidden = value.value.length < 90 && !value.value.includes("\n");
+        if (result.error) errors += 1;
+      }
+      if (status) status.textContent = errors ? `${errors} result${errors === 1 ? "" : "s"} could not be calculated.` : "";
+    }
+  };
+
+  root.tabs = tabs;
+  root.HasherCore = Object.freeze({
+    MAX_INPUT_BYTES,
+    PBKDF2_ITERATIONS,
+    calculateTab,
+    base64ToBytes,
+    bytesToBase64,
+    bytesToHex,
+    hexToBytes,
+    encrypt,
+    decrypt
+  });
+  root.hasher = hasher;
+})(globalThis);

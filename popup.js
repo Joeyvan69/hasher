@@ -1,84 +1,102 @@
-$(document).ready(function() {
-  /*
-   * Cache DOM elements for better performance
-   */
-  const $input = $("#input");
-  const $tabs = $("#tabs li");
-  const $inputPasswordWrapper = $("#input-password-wrapper");
-  const $buttons2 = $(".buttons-2");
-  const $screen1 = $("#screen-1");
-  const $screen2 = $("#screen-2");
+(function () {
+  "use strict";
 
-
-  /*
-   * Events registration
-  */
-  $input.on("keyup change", function () {
-      hasher.update();
-  });
-
-  // Open separate window (pop-out)
-  $("#button-popout").click(function () {
-  if (typeof chrome.extension != "undefined") {
-      chrome.tabs.create({
-      url: 'popup.html'
-      });
+  function debounce(callback, delayForCall) {
+    let timer = null;
+    return () => {
+      clearTimeout(timer);
+      timer = setTimeout(callback, delayForCall());
+    };
   }
-  });
 
-  // Click on tab (Hash/HMAC/...)
-  $tabs.click(function () {
-      // highlight active tab, remove highlight on everything else
-      $tabs.removeClass("on");
-      $(this).addClass("on");
+  async function copyResult(button) {
+    const target = document.getElementById(button.dataset.copyTarget);
+    if (!target) return;
+    const previous = button.textContent;
+    try {
+      await navigator.clipboard.writeText(target.value);
+      button.textContent = "Copied";
+    } catch (_error) {
+      button.textContent = "Copy failed";
+    }
+    setTimeout(() => { button.textContent = previous; }, 1200);
+  }
 
-      // show/hide optional fields
-      if (tabs[this.id] == tabs.hmac || tabs[this.id] == tabs.cipher) {
-          $inputPasswordWrapper.show();
-      } else {
-          $inputPasswordWrapper.hide();
+  function showScreen() {
+    const about = location.hash === "#info";
+    document.getElementById("screen-1").hidden = about;
+    document.getElementById("screen-2").hidden = !about;
+  }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    const input = document.getElementById("input-value");
+    const password = document.getElementById("input-password");
+    const passwordWrapper = document.getElementById("input-password-wrapper");
+    const tabList = document.getElementById("tabs");
+    const output = document.getElementById("output");
+    const scheduleUpdate = debounce(() => hasher.update(), () => hasher.tab === tabs.cipher ? 550 : 160);
+
+    hasher.render();
+    hasher.update();
+    showScreen();
+    input.focus();
+
+    input.addEventListener("input", scheduleUpdate);
+    password.addEventListener("input", scheduleUpdate);
+
+    tabList.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-tab]");
+      if (!button) return;
+      for (const tab of tabList.querySelectorAll("[data-tab]")) {
+        const selected = tab === button;
+        tab.classList.toggle("on", selected);
+        tab.setAttribute("aria-selected", String(selected));
+        tab.tabIndex = selected ? 0 : -1;
       }
-
-      hasher.tab = tabs[this.id];
-      hasher.init();
+      const tabName = button.dataset.tab;
+      passwordWrapper.hidden = tabName !== tabs.hmac && tabName !== tabs.cipher;
+      hasher.setTab(tabName);
       hasher.update();
-      $("#input-value").focus();
-  });
-  
-  /*
-   * Animations (using CSS transitions instead of jQuery animate)
-   */
-  $buttons2.on("mouseenter", function(){
-      $(this).addClass("hovered");
-  });
-  
-  $buttons2.on("mouseleave", function(){
-      $(this).removeClass("hovered");
-  });
+    });
 
-  /*
-   * Hash navigation
-   */
-  const onHashChange = function () {
-      const hash = window.location.hash.slice(1);
-      $(".screens").hide();
-      if (hash === "info") {
-          $screen2.show().scrollTop();
-      } else {
-          $screen1.show().scrollTop();
+    tabList.addEventListener("keydown", (event) => {
+      if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+      const buttons = [...tabList.querySelectorAll("[data-tab]")];
+      const current = buttons.indexOf(document.activeElement);
+      const direction = event.key === "ArrowRight" ? 1 : -1;
+      buttons[(current + direction + buttons.length) % buttons.length].click();
+      buttons[(current + direction + buttons.length) % buttons.length].focus();
+      event.preventDefault();
+    });
+
+    output.addEventListener("click", (event) => {
+      const copy = event.target.closest("[data-copy-target]");
+      if (copy) {
+        copyResult(copy);
+        return;
       }
-  };
+      const expand = event.target.closest("[data-expand-target]");
+      if (!expand) return;
+      const value = document.getElementById(expand.dataset.expandTarget);
+      const expanded = value.rows > 1;
+      value.rows = expanded ? 1 : Math.min(12, Math.max(3, value.value.split("\n").length + 2));
+      expand.textContent = expanded ? "Expand" : "Collapse";
+    });
 
-  $(window).on('hashchange', onHashChange);  
+    document.getElementById("button-popout").addEventListener("click", async () => {
+      try {
+        await chrome.tabs.create({ url: chrome.runtime.getURL("popup.html") });
+      } catch (_error) {
+        document.getElementById("status").textContent = "Could not open a new tab.";
+      }
+    });
 
-  /*
-   * Init
-   */
-  onHashChange();
-  hasher.init();
-  hasher.update();
-  
-  // Focus hack, see http://stackoverflow.com/a/11400653/1295557
-  if (location.search != "?focusHack") location.search = "?focusHack";
-  window.scrollTo(0, 0);
-});
+    window.addEventListener("hashchange", showScreen);
+    document.querySelector(".back-button").addEventListener("click", (event) => {
+      event.preventDefault();
+      history.replaceState(null, "", location.pathname);
+      showScreen();
+      input.focus();
+    });
+  });
+})();
