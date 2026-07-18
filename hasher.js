@@ -361,9 +361,9 @@
 
         const header = document.createElement("div");
         header.className = "result-header";
-        const title = document.createElement("label");
+        const title = document.createElement("h3");
         title.className = "result-title";
-        title.htmlFor = `result-${element.id}`;
+        title.id = `result-title-${element.id}`;
         title.textContent = element.title;
         header.append(title);
         if (element.legacy) {
@@ -379,12 +379,11 @@
 
         const controls = document.createElement("div");
         controls.className = "result-controls";
-        const value = document.createElement("textarea");
+        const value = document.createElement("pre");
         value.id = `result-${element.id}`;
         value.className = "result-value";
-        value.readOnly = true;
-        value.rows = 1;
-        value.spellcheck = false;
+        value.tabIndex = 0;
+        value.setAttribute("aria-labelledby", title.id);
         const copy = document.createElement("button");
         copy.type = "button";
         copy.className = "copy-button";
@@ -419,7 +418,7 @@
             article.classList.add("result-error");
             const value = article.querySelector(".result-value");
             const metadata = article.querySelector(".result-meta");
-            if (value) value.value = `Error: ${error.message}`;
+            if (value) value.textContent = `Error: ${error.message}`;
             if (metadata) metadata.textContent = "";
           }
         }
@@ -432,11 +431,16 @@
         const value = document.getElementById(`result-${result.id}`);
         if (!article || !value) continue;
         article.classList.toggle("result-error", Boolean(result.error));
-        value.value = result.error ? `Error: ${result.error}` : result.value;
+        value.textContent = result.error ? `Error: ${result.error}` : result.value;
         const meta = article.querySelector(".result-meta");
         if (meta) meta.textContent = result.error ? "" : `${utf8Encoder.encode(result.value).length} bytes`;
         const expand = article.querySelector(".expand-button");
-        if (expand) expand.hidden = value.value.length < 90 && !value.value.includes("\n");
+        if (expand) {
+          value.classList.remove("expanded");
+          expand.textContent = "Expand";
+          expand.setAttribute("aria-expanded", "false");
+          expand.hidden = value.scrollHeight <= value.clientHeight + 1;
+        }
         if (result.error) errors += 1;
       }
       if (status) status.textContent = errors ? `${errors} result${errors === 1 ? "" : "s"} could not be calculated.` : "";

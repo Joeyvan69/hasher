@@ -14,7 +14,7 @@
     if (!target) return;
     const previous = button.textContent;
     try {
-      await navigator.clipboard.writeText(target.value);
+      await navigator.clipboard.writeText(target.textContent || "");
       button.textContent = "Copied";
     } catch (_error) {
       button.textContent = "Copy failed";
@@ -78,9 +78,9 @@
       const expand = event.target.closest("[data-expand-target]");
       if (!expand) return;
       const value = document.getElementById(expand.dataset.expandTarget);
-      const expanded = value.rows > 1;
-      value.rows = expanded ? 1 : Math.min(12, Math.max(3, value.value.split("\n").length + 2));
-      expand.textContent = expanded ? "Expand" : "Collapse";
+      const expanded = value.classList.toggle("expanded");
+      expand.setAttribute("aria-expanded", String(expanded));
+      expand.textContent = expanded ? "Collapse" : "Expand";
     });
 
     document.getElementById("button-popout").addEventListener("click", async () => {

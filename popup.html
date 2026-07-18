@@ -13,70 +13,102 @@
     <script src="popup.js" defer></script>
   </head>
   <body>
-    <main id="screen-1" class="screen">
-      <div id="toolbar">
-        <a id="button-info" class="icon-button" href="#info" title="About" aria-label="About">
-          <img src="images/info.png" width="16" height="16" alt="">
-        </a>
-        <span class="toolbar-divider" aria-hidden="true"></span>
-        <button id="button-popout" class="icon-button" type="button" title="Open in new tab" aria-label="Open in new tab">
-          <img src="images/popout.png" width="16" height="16" alt="">
-        </button>
-      </div>
+    <main id="screen-1" class="screen app-shell">
+      <header class="app-header">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true">
+            <img src="images/icon48.png" width="30" height="30" alt="">
+          </div>
+          <div>
+            <p class="eyebrow">Developer toolbox</p>
+            <h1>Hasher</h1>
+          </div>
+        </div>
+
+        <div class="header-actions">
+          <span class="local-badge"><span aria-hidden="true"></span>Local only</span>
+          <a id="button-info" class="icon-button" href="#info" title="About Hasher" aria-label="About Hasher">
+            <img src="images/info.png" width="16" height="16" alt="">
+          </a>
+          <button id="button-popout" class="icon-button" type="button" title="Open in new tab" aria-label="Open in new tab">
+            <img src="images/popout.png" width="16" height="16" alt="">
+          </button>
+        </div>
+      </header>
 
       <nav id="tabs" class="tabs" role="tablist" aria-label="Tool category">
         <button type="button" role="tab" data-tab="hash" aria-selected="true" class="on">Hash</button>
-        <button type="button" role="tab" data-tab="hmac" aria-selected="false">HMAC</button>
-        <button type="button" role="tab" data-tab="crc" aria-selected="false">CRC</button>
-        <button type="button" role="tab" data-tab="cipher" aria-selected="false">Cipher</button>
-        <button type="button" role="tab" data-tab="net" aria-selected="false">Net</button>
-        <button type="button" role="tab" data-tab="time" aria-selected="false">Time</button>
-        <button type="button" role="tab" data-tab="number" aria-selected="false">Num</button>
-        <button type="button" role="tab" data-tab="string" aria-selected="false">Strings</button>
-        <button type="button" role="tab" data-tab="encode" aria-selected="false">Encode</button>
+        <button type="button" role="tab" data-tab="hmac" aria-selected="false" tabindex="-1">HMAC</button>
+        <button type="button" role="tab" data-tab="crc" aria-selected="false" tabindex="-1">CRC</button>
+        <button type="button" role="tab" data-tab="cipher" aria-selected="false" tabindex="-1">Cipher</button>
+        <button type="button" role="tab" data-tab="net" aria-selected="false" tabindex="-1">Network</button>
+        <button type="button" role="tab" data-tab="time" aria-selected="false" tabindex="-1">Time</button>
+        <button type="button" role="tab" data-tab="number" aria-selected="false" tabindex="-1">Numbers</button>
+        <button type="button" role="tab" data-tab="string" aria-selected="false" tabindex="-1">Strings</button>
+        <button type="button" role="tab" data-tab="encode" aria-selected="false" tabindex="-1">Encode</button>
       </nav>
 
-      <section id="input" aria-labelledby="input-title">
-        <label id="input-title" class="title" for="input-value">Input:</label>
-        <textarea id="input-value" autofocus spellcheck="false"></textarea>
+      <section id="input" class="panel input-panel" aria-labelledby="input-title">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">Source</p>
+            <label id="input-title" class="section-title" for="input-value">Input value</label>
+          </div>
+          <span class="input-hint">UTF-8 · 4 MiB max</span>
+        </div>
+        <textarea id="input-value" autofocus spellcheck="false" placeholder="Type or paste a value…"></textarea>
         <div id="input-password-wrapper" hidden>
-          <label class="title" for="input-password">Password / HMAC key:</label>
-          <input id="input-password" type="password" autocomplete="off">
+          <label class="field-label" for="input-password">Password / HMAC key</label>
+          <input id="input-password" type="password" autocomplete="off" placeholder="Enter a secret key">
         </div>
       </section>
 
-      <p id="status" role="status" aria-live="polite"></p>
-      <section id="output" aria-label="Results"></section>
+      <div class="results-heading">
+        <div>
+          <p class="section-kicker">Output</p>
+          <h2>Results</h2>
+        </div>
+        <p id="status" role="status" aria-live="polite"></p>
+      </div>
+      <section id="output" class="results-list" aria-label="Results"></section>
     </main>
 
-    <main id="screen-2" class="screen" hidden>
-      <a href="#" class="button back-button">Back</a>
-      <h1>About Hasher</h1>
+    <main id="screen-2" class="screen app-shell" hidden>
+      <header class="about-header">
+        <a href="#" class="button back-button" aria-label="Back to Hasher"><span aria-hidden="true">←</span> Back</a>
+        <div class="brand-mark" aria-hidden="true">
+          <img src="images/icon48.png" width="30" height="30" alt="">
+        </div>
+      </header>
 
-      <p>
-        Hasher is an offline developer toolbox. Input is processed locally and is never transmitted,
-        but legacy algorithms are provided only for compatibility and must not be used as security primitives.
-      </p>
+      <article class="panel about-panel">
+        <p class="eyebrow">Offline developer toolbox</p>
+        <h1>About Hasher</h1>
 
-      <ul>
-        <li><strong>Hash:</strong> MD4, MD5, SHA-1, SHA-2, RIPEMD-160, and Whirlpool</li>
-        <li><strong>HMAC:</strong> the same hash families, using UTF-8 input and key bytes</li>
-        <li><strong>CRC:</strong> CRC-8, CRC-16, FCS-16, and CRC-32 over UTF-8 bytes</li>
-        <li><strong>Cipher:</strong> AES-256-GCM with PBKDF2-HMAC-SHA256 and authenticated output</li>
-        <li><strong>Net:</strong> IPv4/subnet calculator, including CIDR /0 through /32</li>
-        <li><strong>Time, numbers, strings, and encoding:</strong> strict, lossless developer conversions</li>
-      </ul>
+        <p class="about-lead">
+          Input is processed locally and is never transmitted. Legacy algorithms remain available only for
+          compatibility and must not be used as security primitives.
+        </p>
 
-      <p>Click a Copy button to place a result on the clipboard.</p>
-      <p>
-        Legacy hashes are powered by
-        <a href="https://github.com/Daninet/hash-wasm" target="_blank" rel="noopener noreferrer">hash-wasm</a>
-        4.12.0. Modern authenticated encryption uses the browser Web Crypto API.
-      </p>
-      <p>
-        Original project by Sergey Novikov. Source:
-        <a href="https://github.com/s12v/hasher" target="_blank" rel="noopener noreferrer">GitHub</a>.
-      </p>
+        <div class="feature-grid">
+          <div><strong>Hash & HMAC</strong><span>Modern and compatibility algorithms</span></div>
+          <div><strong>Authenticated cipher</strong><span>AES-256-GCM with PBKDF2</span></div>
+          <div><strong>Network tools</strong><span>IPv4 and CIDR /0 through /32</span></div>
+          <div><strong>Conversions</strong><span>Time, numbers, text, and encoding</span></div>
+        </div>
+
+        <div class="about-notes">
+          <p>
+            Legacy hashes are powered by
+            <a href="https://github.com/Daninet/hash-wasm" target="_blank" rel="noopener noreferrer">hash-wasm</a>
+            4.12.0. Authenticated encryption uses the browser Web Crypto API.
+          </p>
+          <p>
+            Original project by Sergey Novikov ·
+            <a href="https://github.com/s12v/hasher" target="_blank" rel="noopener noreferrer">View source</a>
+          </p>
+        </div>
+      </article>
     </main>
   </body>
 </html>
