@@ -86,7 +86,10 @@ test("AES-GCM round-trips Unicode and detects tampering", async () => {
   const ciphertext = await HasherCore.encrypt("hello 世界", "correct horse battery staple");
   assert.match(ciphertext, /^hasher:v2:600000:/);
   assert.equal(await HasherCore.decrypt(ciphertext, "correct horse battery staple"), "hello 世界");
-  const tampered = `${ciphertext.slice(0, -1)}${ciphertext.endsWith("A") ? "B" : "A"}`;
+  const parts = ciphertext.split(":");
+  const position = Math.floor(parts[5].length / 2);
+  parts[5] = `${parts[5].slice(0, position)}${parts[5][position] === "A" ? "B" : "A"}${parts[5].slice(position + 1)}`;
+  const tampered = parts.join(":");
   await assert.rejects(() => HasherCore.decrypt(tampered, "correct horse battery staple"), /Decryption failed/);
 });
 
