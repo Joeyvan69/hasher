@@ -1,0 +1,12 @@
+{
+  "name": "hasher-extension",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Tests for the Hasher unpacked Chrome extension",
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
